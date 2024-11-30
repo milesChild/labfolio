@@ -1,0 +1,39 @@
+version: latest
+
+services:
+  api:
+    container_name: labfolio-api
+    build:
+      context: .
+      dockerfile: api/Dockerfile
+    ports:
+      - "8000:8000"
+    networks:  # establish a network for the dashboard and api to communicate
+      - labfolio-network
+    environment:
+      - API_URL=${API_URL}
+      - RDS_HOST=${RDS_HOST}
+      - RDS_NAME=${RDS_NAME}
+      - RDS_USER=${RDS_USER}
+      - RDS_PASSWORD=${RDS_PASSWORD}
+      - S3_BUCKET=${S3_BUCKET}
+      - S3_KEY=${S3_KEY}
+      - S3_SECRET=${S3_SECRET}
+
+  dashboard:
+    container_name: labfolio-dashboard
+    build:
+      context: .
+      dockerfile: dashboard/Dockerfile
+    ports:
+      - "8501:8501"
+    environment:
+      - API_URL=${API_URL}
+    depends_on:
+      - api
+    networks:
+      - labfolio-network
+
+networks:
+  labfolio-network:
+    driver: bridge
