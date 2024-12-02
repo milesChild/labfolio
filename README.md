@@ -32,7 +32,7 @@ Project subdirectories are as follows:
 
 # database schema
 
-*Using [MySQL](https://www.mysql.com/) via [AWS RDS](https://aws.amazon.com/rds/).*
+*Using [PostgreSQL](https://www.postgresql.org/) via [AWS RDS](https://aws.amazon.com/rds/).*
 
 ```mermaid
 erDiagram
@@ -96,10 +96,10 @@ Below is the entire database schema for the project. You can replicate the entir
 
 ```sql
 -- schema for user management
-CREATE SCHEMA IF NOT EXISTS user;
+CREATE SCHEMA IF NOT EXISTS user_management;
 
 -- accounts table
-CREATE TABLE user.accounts (
+CREATE TABLE user_management.accounts (
     user_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     username VARCHAR(255) NOT NULL UNIQUE,
     password_hash VARCHAR(255) NOT NULL,  -- store ppls passwords as hash
@@ -107,7 +107,7 @@ CREATE TABLE user.accounts (
 );
 
 -- portfolios table
-CREATE TABLE user.portfolios (
+CREATE TABLE user_management.portfolios (
     portfolio_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     portfolio_name VARCHAR(255) NOT NULL,
     portfolio_address VARCHAR(512),  -- S3 address
@@ -115,16 +115,16 @@ CREATE TABLE user.portfolios (
 );
 
 -- user-portfolio mapping table
-CREATE TABLE user.user_portfolios (
-    user_id UUID REFERENCES user.accounts(user_id) ON DELETE CASCADE,
-    portfolio_id UUID REFERENCES user.portfolios(portfolio_id) ON DELETE CASCADE,
+CREATE TABLE user_management.user_portfolios (
+    user_id UUID REFERENCES user_management.accounts(user_id) ON DELETE CASCADE,
+    portfolio_id UUID REFERENCES user_management.portfolios(portfolio_id) ON DELETE CASCADE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (user_id, portfolio_id)
 );
 
 -- indexes
-CREATE INDEX idx_accounts_username ON user.accounts(username);
-CREATE INDEX idx_portfolios_name ON user.portfolios(portfolio_name);
+CREATE INDEX idx_accounts_username ON user_management.accounts(username);
+CREATE INDEX idx_portfolios_name ON user_management.portfolios(portfolio_name);
 
 -- schema for factor management
 CREATE SCHEMA IF NOT EXISTS factor;
