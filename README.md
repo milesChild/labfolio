@@ -1,8 +1,6 @@
 # labfolio
 Open-sourced portfolio analysis stack
 
-
-
 # quickstart
 
 
@@ -78,7 +76,21 @@ erDiagram
     }
 ```
 
-[Database Schema SQL](#database-schema-sql)
+You can also find the entire database schema written as SQL commands in the [appendix](#appendix).
+
+
+# acknowledgements
+
+| Resource | Thanks |
+|------|---------|
+| [giuseppe paleologo](https://linktr.ee/paleologo) | For inspiring this project |
+| [yfinance](https://pypi.org/project/yfinance/) | For generously providing free financial data |
+| [cursor-ai](https://www.cursor.ai/) | For making coding easier and more efficient |
+| [claude-3.5](https://www.anthropic.com/chat) | *used with cursor* |
+
+# appendix
+
+## Database Schema SQL
 
 Below is the entire database schema for the project. You can replicate the entire backend database by running the following SQL commands.
 
@@ -139,19 +151,3 @@ CREATE TABLE factor.returns (
 CREATE INDEX idx_factor_returns_date ON factor.returns(date);
 CREATE INDEX idx_factors_id ON factor.factors(factor_id);
 ```
-
-
-
-
-
-
-
-
-
-# acknowledgements
-
-| Resource | Thanks |
-|------|---------|
-| [yfinance](https://pypi.org/project/yfinance/) | For generously providing free financial data |
-| [cursor-ai](https://www.cursor.ai/) | For making coding easier and more efficient |
-| [claude-3.5](https://www.anthropic.com/chat) | *with cursor* |

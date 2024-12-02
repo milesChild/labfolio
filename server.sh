@@ -1,0 +1,1 @@
+ssh -i "fonteont.pem" ec2-user@ec2-52-207-247-226.compute-1.amazonaws.com
