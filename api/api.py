@@ -2,6 +2,7 @@ from fastapi import FastAPI
 import uvicorn
 import os
 from db import AWSDB
+from s3 import AWSS3
 
 app = FastAPI(title="labfolio-api")
 
@@ -19,6 +20,17 @@ def test_db_connection() -> None:
         print('[ INFO | BACKEND ] Database connection successful')
     else:
         raise Exception('[ ERROR | BACKEND ] Database connection failed')
+
+def test_s3_connection() -> None:
+    """Runs a test to ensure we can connect to S3"""
+    s3 = AWSS3(
+        aws_access_key_id=os.getenv('S3_KEY'),
+        aws_secret_access_key=os.getenv('S3_SECRET'),
+        bucket_name=os.getenv('S3_BUCKET')
+    )
+    files = s3.list_files()
+    del s3
+    print('[ INFO | BACKEND ] S3 connection successful')
 
 # TODO: validate a portfolio
 
@@ -49,4 +61,5 @@ async def ping():
 
 if __name__ == "__main__":
     test_db_connection()
+    test_s3_connection()
     uvicorn.run(app, host="0.0.0.0", port=8000)
