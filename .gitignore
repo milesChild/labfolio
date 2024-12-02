@@ -1,3 +1,4 @@
 .env
 *.pem
 __pycache__
+api/db_test.py

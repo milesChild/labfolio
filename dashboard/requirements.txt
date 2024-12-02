@@ -1,3 +1,4 @@
 streamlit==1.40.0
 requests==2.31.0
 pandas
+pydantic>=2.6.1
