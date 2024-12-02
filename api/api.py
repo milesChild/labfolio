@@ -62,8 +62,7 @@ async def ping():
 ### POST REQUESTS ###
 #####################
 
-# TODO: create account
-@app.post("/account", response_model=Account)
+@app.post("/account")
 async def create_account(username: str, password: str):
     """Creates a new account"""
     # Check if username already exists
@@ -101,13 +100,15 @@ async def create_account(username: str, password: str):
     try:
         query = f"INSERT INTO user_management.accounts ({', '.join(account_dict.keys())}) VALUES ({', '.join(['%s'] * len(account_dict))})"
         db.cursor.execute(query, tuple(account_dict.values()))
-        return account
+
+        # Status code 200 for a successful account creation
+        return {"status": "Account created successfully."}
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error creating account: {str(e)}")
     finally:
         del db
 
-# TODO: login
 @app.post("/login")
 async def login(username: str, password: str):
     """Authenticates a user and returns their account information"""
@@ -142,11 +143,8 @@ async def login(username: str, password: str):
         if not bcrypt.checkpw(password.encode('utf-8'), stored_hash.encode('utf-8')):
             raise HTTPException(status_code=401, detail="Invalid username or password")
         
-        # Create account object to return (excluding password_hash for security)
-        return {
-            "user_id": user_id,
-            "username": db_username
-        }
+        # Status code 200 for a successful login
+        return {"status": "Successfully logged in."}
         
     except HTTPException:
         raise  # Re-raise HTTP exceptions
