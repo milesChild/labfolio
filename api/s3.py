@@ -35,33 +35,44 @@ class AWSS3():
         except ClientError as e:
             raise Exception(f'Failed to connect to S3: {str(e)}')
 
-    def upload_file(self, file_path: str, s3_key: str) -> bool:
+    def get_s3_url(self, s3_key: str) -> str:
+        """
+        Generates the S3 URL for a given key
+        :param s3_key: Path of the file in S3
+        :return: Full S3 URL
+        """
+        return f"s3://{self.bucket}/{s3_key}"
+
+    def upload_file(self, file_path: str, s3_key: str) -> Optional[str]:
         """
         Uploads a file to S3
         :param file_path: Local path to the file
         :param s3_key: Destination path in S3
-        :return: True if successful, False otherwise
+        :return: S3 URL if successful, None otherwise
         """
         try:
             self.s3.upload_file(file_path, self.bucket, s3_key)
-            return True
+            return self.get_s3_url(s3_key)
         except ClientError as e:
             print(f'Error uploading file: {str(e)}')
-            return False
+            return None
 
-    def upload_fileobj(self, file_obj: BinaryIO, s3_key: str) -> bool:
+    def upload_fileobj(self, file_obj: BinaryIO, s3_key: str) -> Optional[str]:
         """
         Uploads a file-like object to S3
         :param file_obj: File-like object to upload
         :param s3_key: Destination path in S3
-        :return: True if successful, False otherwise
+        :return: S3 URL if successful, None otherwise
         """
         try:
+            # Reset file pointer to beginning
+            file_obj.seek(0)
+            # Upload the file object
             self.s3.upload_fileobj(file_obj, self.bucket, s3_key)
-            return True
+            return self.get_s3_url(s3_key)
         except ClientError as e:
             print(f'Error uploading file object: {str(e)}')
-            return False
+            return None
 
     def download_file(self, s3_key: str, local_path: str) -> bool:
         """
@@ -131,3 +142,27 @@ class AWSS3():
         except ClientError as e:
             print(f'Error listing files: {str(e)}')
             return []
+
+    def upload_dataframe(self, df: pd.DataFrame, s3_key: str) -> Optional[str]:
+        """
+        Uploads a pandas DataFrame directly to S3 as CSV
+        :param df: pandas DataFrame to upload
+        :param s3_key: Destination path in S3
+        :return: S3 URL if successful, None otherwise
+        """
+        try:
+            # Convert DataFrame to CSV buffer in memory
+            csv_buffer = io.StringIO()
+            df.to_csv(csv_buffer, index=False)
+            
+            # Convert to bytes buffer
+            csv_bytes = io.BytesIO(csv_buffer.getvalue().encode())
+            
+            # Upload to S3
+            self.s3.upload_fileobj(csv_bytes, self.bucket, s3_key)
+            return self.get_s3_url(s3_key)
+        except ClientError as e:
+            print(f'Error uploading DataFrame: {str(e)}')
+            return None
+        finally:
+            csv_buffer.close()

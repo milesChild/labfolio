@@ -3,6 +3,9 @@ import requests
 import json
 from typing import Optional
 import os
+import io
+from common.models import Portfolio
+from pydantic import ValidationError
 
 # Backend URL from environment variable with fallback
 BACKEND_URL = os.getenv("BACKEND_URL", "http://api:8000")
@@ -30,6 +33,49 @@ if 'is_create_account' not in st.session_state:
 ####################
 ### GET REQUESTS ###
 ####################
+
+def get_user_portfolios() -> list[Portfolio]:
+    """
+    Get all portfolios for the current user
+    Returns a list of validated Portfolio objects
+    """
+    try:
+        # Verify user is authenticated and we have their user_id
+        if not st.session_state.authenticated or not st.session_state.user_id:
+            st.error("You must be logged in to view portfolios.")
+            return []
+            
+        # Make the request to the API
+        response = requests.get(
+            f"{BACKEND_URL}/portfolios",
+            params={"user_id": st.session_state.user_id},
+            timeout=5
+        )
+        
+        if response.status_code == 200:
+            # Convert each portfolio dict to a validated Portfolio object
+            portfolios = []
+            for portfolio_data in response.json():
+                try:
+                    portfolio = Portfolio.model_validate(portfolio_data)
+                    portfolios.append(portfolio)
+                except ValidationError as e:
+                    st.error(f"Invalid portfolio data received: {str(e)}")
+            return portfolios
+        else:
+            error_detail = response.json().get("detail", "Unknown error occurred")
+            st.error(f"Failed to fetch portfolios: {error_detail}")
+            return []
+            
+    except requests.exceptions.Timeout:
+        st.error("Request timed out. Please try again.")
+        return []
+    except requests.exceptions.ConnectionError:
+        st.error("Could not connect to the server. Please try again later.")
+        return []
+    except Exception as e:
+        st.error(f"An unexpected error occurred: {str(e)}")
+        return []
 
 #####################
 ### POST REQUESTS ###
@@ -80,6 +126,70 @@ def create_account(username: str, password: str) -> bool:
         else:  # Other errors (500, etc)
             error_detail = response.json().get("detail", "Unknown error occurred")
             st.error(f"Account creation failed: {error_detail}")
+            return False
+            
+    except requests.exceptions.Timeout:
+        st.error("Request timed out. Please try again.")
+        return False
+    except requests.exceptions.ConnectionError:
+        st.error("Could not connect to the server. Please try again later.")
+        return False
+    except Exception as e:
+        st.error(f"An unexpected error occurred: {str(e)}")
+        return False
+
+def upload_portfolio(file, portfolio_name: str) -> bool:
+    """
+    Uploads a portfolio file to the backend
+    :param file: The CSV file to upload
+    :param portfolio_name: Name for the portfolio
+    :return: True if successful, False otherwise
+    """
+    try:
+        # Verify user is authenticated and we have their user_id
+        if not st.session_state.authenticated or not st.session_state.user_id:
+            st.error("You must be logged in to upload a portfolio.")
+            return False
+            
+        print(f"DEBUG: Starting upload for file {file.name}")
+        print(f"DEBUG: Portfolio name: {portfolio_name}")
+        print(f"DEBUG: User ID: {st.session_state.user_id}")
+        
+        # Seek to beginning of file
+        file.seek(0)
+        
+        # Create BytesIO object from file
+        file_bytes = io.BytesIO(file.read())
+        file_bytes.seek(0)
+        
+        # Create the multipart form data
+        files = {"file": (file.name, file_bytes, "text/csv")}
+        params = {
+            "portfolio_name": portfolio_name,
+            "user_id": st.session_state.user_id
+        }
+        
+        print("DEBUG: Sending request to API")
+        # Make the request to the API
+        response = requests.post(
+            f"{BACKEND_URL}/portfolio",
+            files=files,
+            params=params,
+            timeout=10
+        )
+        print(f"DEBUG: Received response with status code: {response.status_code}")
+        
+        if response.status_code == 200:
+            response_data = response.json()
+            st.success(f"Portfolio '{response_data['portfolio_name']}' uploaded successfully!")
+            return True
+        elif response.status_code == 400:
+            error_detail = response.json().get("detail", "Unknown error occurred")
+            st.error(f"Invalid portfolio format: {error_detail}")
+            return False
+        else:
+            error_detail = response.json().get("detail", "Unknown error occurred")
+            st.error(f"Failed to upload portfolio: {error_detail}")
             return False
             
     except requests.exceptions.Timeout:
@@ -145,4 +255,48 @@ if not check_auth():
 
 # Landing Page
 st.title("labfolio")
-st.subheader(f"Welcome, {st.session_state.username}")
+if not st.session_state.is_create_account:
+    st.subheader(f"Welcome back, {st.session_state.username}.")
+else:
+    st.subheader(f"Welcome, {st.session_state.username}.")
+
+tabs = st.tabs(["Portfolio Analysis", "My Portfolios", "Factor Library"])
+
+# Portfolio Analysis tab
+with tabs[0]:
+    st.header("Portfolio Analysis")
+    # Add content for Portfolio Analysis here
+
+# My Portfolios tab
+with tabs[1]:
+    st.header("My Portfolios")
+    # Form for uploading a new portfolio
+    with st.form("upload_portfolio_form"):
+        st.subheader("Upload a New Portfolio")
+        uploaded_file = st.file_uploader("Choose a CSV file", type=['csv'])
+        portfolio_name = st.text_input("Portfolio Name*", placeholder="Enter a name for your portfolio")
+        submitted = st.form_submit_button("Upload Portfolio")
+        
+        if submitted:
+            if not portfolio_name:
+                st.error("Please enter a portfolio name.")
+            elif not uploaded_file:
+                st.error("Please select a CSV file.")
+            else:
+                if upload_portfolio(uploaded_file, portfolio_name):
+                    st.rerun()
+    # Table of existing portfolios
+    st.subheader("Your Existing Portfolios")
+    portfolios = get_user_portfolios()
+    if portfolios:
+        # Create a list of dictionaries with portfolio_name and created_at
+        portfolio_data = [{"Portfolio Name": p.portfolio_name, "Created At": p.created_at} for p in portfolios]
+        # Display the table
+        st.table(portfolio_data)
+    else:
+        st.info("You don't have any portfolios yet. Upload one using the form above.")
+    
+# Factor Library tab
+with tabs[2]:
+    st.header("Factor Library")
+    # Add content for Factor Library here
