@@ -134,7 +134,7 @@ CREATE TABLE factor.factors (
     factor_id VARCHAR(50) PRIMARY KEY NOT NULL UNIQUE, -- e.g., 'MKT'
     factor_name VARCHAR(255) NOT NULL, -- e.g., 'Market'
     factor_description TEXT,
-    source VARCHAR(100),  -- e.g., 'French Data Library'
+    factor_category VARCHAR(100),  -- e.g., 'Style, Country'
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
