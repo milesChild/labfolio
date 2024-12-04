@@ -17,6 +17,7 @@ Project subdirectories are as follows:
 |-----------|-------------|
 | `api`     | REST API built with [FastAPI](https://fastapi.tiangolo.com/), serves the `dashboard` |
 | `dashboard`      | Dashboard built with [Streamlit](https://streamlit.io/), consumes the `api` |
+| `lambda`  | Lambda functions for updating factor returns |
 | `common`  | Shared code between `api` and `dashboard` |
 
 ## `api`
@@ -27,7 +28,22 @@ Project subdirectories are as follows:
 
 
 
+## `lambda`
+
+Factor returns are constantly changing. Lambda is used in labfolio for one purpose: to update the returns for the factors (daily). Here are the short details:
+
+| File | Description |
+|-----------|-------------|
+| `app.py`     | Lambda function for updating factor returns |
+| `Dockerfile`  | Docker image definition for the Lambda function. This is stored in Amazon ECR |
+| `update_image.sh`  | Script for updating the Lambda image in Amazon ECR |
+| `requirements.txt`  | Python dependencies for the Lambda function |
+| `labfolio-factors-daily-update.yaml`  | AWS SAM template for the Lambda function. You should be able to replicate the function by importing this template file. Be sure to update the placeholder values. |
+
+You can see detailed instructions for updating the Lambda image in the [appendix](#appendix).
+
 ## `common`
+
 
 
 # database schema
@@ -64,7 +80,7 @@ erDiagram
         varchar factor_id PK
         varchar factor_name
         text factor_description
-        varchar source
+        varchar factor_category
         timestamp created_at
         timestamp last_updated
     }
@@ -89,6 +105,42 @@ You can also find the entire database schema written as SQL commands in the [app
 | [claude-3.5](https://www.anthropic.com/chat) | *used with cursor* |
 
 # appendix
+
+## Update Lambda Image Script
+
+The `update_image.sh` script automates the process of building and deploying Docker images to Amazon ECR (Elastic Container Registry) for use with AWS Lambda.
+
+Prerequisites:
+
+- AWS CLI configured with appropriate credentials
+- Docker installed and running
+- `AWS_ACCOUNT_ID` environment variable set
+- region is set to `us-east-1` (you can change this in the script if you need to)
+
+Usage:
+
+```bash
+./update_image.sh <image_name> <repository_name>
+```
+
+Parameters:
+
+- `image_name`: The name to give the local Docker image, I use `labfolio-factors-daily-update`
+- `repository_name`: The name of your ECR repository, I use `labfolio`
+
+What it does:
+
+1. Validates that `AWS_ACCOUNT_ID` is set
+2. Builds a Docker image compatible with AWS Lambda (linux/amd64)
+3. Authenticates with Amazon ECR
+4. Tags the local image for ECR
+5. Pushes the image to your ECR repository
+
+Example:
+
+```bash
+./update_image.sh labfolio-factors-daily-update labfolio
+```
 
 ## Database Schema SQL
 
