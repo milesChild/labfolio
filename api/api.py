@@ -7,6 +7,7 @@ from s3 import AWSS3
 from common.models import (
     Account,
     Portfolio,
+    PortfolioHolding,
     Factor
 )
 import bcrypt
@@ -75,6 +76,42 @@ def verify_portfolio(df: pd.DataFrame) -> bool:
     except Exception:
         return False
     return True
+
+def get_portfolio_df(portfolio_id: str) -> Optional[pd.DataFrame]:
+    """
+    Gets a portfolio DataFrame from S3 based on its portfolio_id
+    :param portfolio_id: UUID of the portfolio
+    :return: pandas DataFrame containing the portfolio data, or None if not found
+    """
+    try:
+        # Get database connection and fetch portfolio address
+        db = get_db_connection()
+        db.cursor.execute(
+            "SELECT portfolio_address FROM user_management.portfolios WHERE portfolio_id = %s",
+            (portfolio_id,)
+        )
+        result = db.cursor.fetchone()
+        
+        if not result:
+            return None
+            
+        portfolio_address = result[0]
+        
+        # Extract the S3 key from the portfolio address by removing the "s3://" prefix and bucket name
+        s3_key = portfolio_address.split('/', 3)[3]
+        
+        # Get S3 connection and download the CSV
+        s3 = get_s3_connection()
+        df = s3.read_csv(s3_key)
+        
+        return df
+        
+    except Exception as e:
+        print(f"Error getting portfolio CSV: {str(e)}")
+        return None
+    finally:
+        if 'db' in locals(): del db
+        if 's3' in locals(): del s3
 
 ####################
 ### GET REQUESTS ###
@@ -145,6 +182,25 @@ async def get_portfolio(portfolio_id: str, user_id: str):
     # verifies the portfolio is well-formed
     # returns the portfolio
     pass
+
+# TODO: get a list of holdings for a portfolio
+@app.get("/portfolio/holdings")
+async def get_portfolio_holdings(portfolio_id: str) -> list[PortfolioHolding]:
+    """Gets the holdings for a portfolio"""
+    try:
+        df = get_portfolio_df(portfolio_id)
+        if df is None:
+            raise HTTPException(status_code=404, detail="Portfolio not found")
+            
+        # Convert DataFrame rows to dictionaries using column names
+        holdings = [
+            PortfolioHolding(portfolio_id=portfolio_id, **dict(zip(df.columns, row))) 
+            for row in df.values
+        ]
+        return holdings
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching portfolio holdings: {str(e)}")
 
 # TODO: get a list of available factors
 @app.get("/factors")

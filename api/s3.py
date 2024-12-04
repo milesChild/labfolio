@@ -42,17 +42,21 @@ class AWSS3():
         :return: Full S3 URL
         """
         return f"s3://{self.bucket}/{s3_key}"
+    
+    def get_s3_uri(self, s3_key: str) -> str:
+        """Generates the S3 URI for a given key"""
+        return f"s3://{self.bucket}/{s3_key}"
 
     def upload_file(self, file_path: str, s3_key: str) -> Optional[str]:
         """
         Uploads a file to S3
         :param file_path: Local path to the file
         :param s3_key: Destination path in S3
-        :return: S3 URL if successful, None otherwise
+        :return: S3 URI if successful, None otherwise
         """
         try:
             self.s3.upload_file(file_path, self.bucket, s3_key)
-            return self.get_s3_url(s3_key)
+            return self.get_s3_uri(s3_key)
         except ClientError as e:
             print(f'Error uploading file: {str(e)}')
             return None
@@ -62,14 +66,14 @@ class AWSS3():
         Uploads a file-like object to S3
         :param file_obj: File-like object to upload
         :param s3_key: Destination path in S3
-        :return: S3 URL if successful, None otherwise
+        :return: S3 URI if successful, None otherwise
         """
         try:
             # Reset file pointer to beginning
             file_obj.seek(0)
             # Upload the file object
             self.s3.upload_fileobj(file_obj, self.bucket, s3_key)
-            return self.get_s3_url(s3_key)
+            return self.get_s3_uri(s3_key)
         except ClientError as e:
             print(f'Error uploading file object: {str(e)}')
             return None
@@ -148,7 +152,7 @@ class AWSS3():
         Uploads a pandas DataFrame directly to S3 as CSV
         :param df: pandas DataFrame to upload
         :param s3_key: Destination path in S3
-        :return: S3 URL if successful, None otherwise
+        :return: S3 URI if successful, None otherwise
         """
         try:
             # Convert DataFrame to CSV buffer in memory
@@ -160,7 +164,7 @@ class AWSS3():
             
             # Upload to S3
             self.s3.upload_fileobj(csv_bytes, self.bucket, s3_key)
-            return self.get_s3_url(s3_key)
+            return self.get_s3_uri(s3_key)
         except ClientError as e:
             print(f'Error uploading DataFrame: {str(e)}')
             return None

@@ -4,8 +4,9 @@ import json
 from typing import Optional
 import os
 import io
-from common.models import Portfolio, Factor
+from common.models import Portfolio, PortfolioHolding, Factor
 from pydantic import ValidationError, fields
+import pandas as pd
 
 # Backend URL from environment variable with fallback
 BACKEND_URL = os.getenv("BACKEND_URL", "http://api:8000")
@@ -25,6 +26,10 @@ if 'user_id' not in st.session_state:
     st.session_state.user_id = None
 if 'is_create_account' not in st.session_state:
     st.session_state.is_create_account = False
+if 'selected_portfolio_id' not in st.session_state:
+    st.session_state.selected_portfolio_id = None
+if 'portfolios_table' not in st.session_state:
+    st.session_state.portfolios_table = None
 
 ##############################
 ### BACKEND HELPER METHODS ###
@@ -77,7 +82,38 @@ def get_user_portfolios() -> list[Portfolio]:
         st.error(f"An unexpected error occurred: {str(e)}")
         return []
 
-# TODO: Implement get_factors
+# TODO: Implement get_portfolio
+def get_portfolio_holdings(portfolio_id: str) -> list[PortfolioHolding]:
+    """Method to get a single portfolio by its ID from the backend."""
+    try:
+        response = requests.get(
+            f"{BACKEND_URL}/portfolio/holdings",
+            params={"portfolio_id": portfolio_id},
+            timeout=5
+        )
+        if response.status_code == 200:
+            holdings = []
+            for holding_data in response.json():
+                try:
+                    holding = PortfolioHolding.model_validate(holding_data)
+                    holdings.append(holding)
+                except ValidationError as e:
+                    st.error(f"Invalid holding data received: {str(e)}")
+            return holdings
+        else:
+            error_detail = response.json().get("detail", "Unknown error occurred")
+            st.error(f"Failed to fetch holdings: {error_detail}")
+            return []
+    except requests.exceptions.Timeout:
+        st.error("Request timed out. Please try again.")
+        return []
+    except requests.exceptions.ConnectionError:
+        st.error("Could not connect to the server. Please try again later.")
+        return []
+    except Exception as e:
+        st.error(f"An unexpected error occurred: {str(e)}")
+        return []
+
 def get_factors() -> list[Factor]:
     try:
         response = requests.get(
@@ -301,6 +337,7 @@ with tabs[0]:
 # My Portfolios tab
 with tabs[1]:
     st.header("My Portfolios")
+    
     # Form for uploading a new portfolio
     with st.form("upload_portfolio_form"):
         st.subheader("Upload a New Portfolio")
@@ -316,17 +353,68 @@ with tabs[1]:
             else:
                 if upload_portfolio(uploaded_file, portfolio_name):
                     st.rerun()
+
+    # Display holdings if a portfolio is selected
+    if st.session_state.selected_portfolio_id:
+        st.divider()
+        st.subheader("Selected Portfolio Holdings")
+        
+        # Add a button to clear selection
+        if st.button("Clear Selection"):
+            st.session_state.selected_portfolio_id = None
+            st.rerun()
+        
+        # Get and display the holdings
+        holdings = get_portfolio_holdings(st.session_state.selected_portfolio_id)
+        if holdings:
+            holdings_data = [{"Ticker": h.yf_ticker, "Quantity": h.quantity} for h in holdings]
+            st.dataframe(holdings_data, hide_index=True, use_container_width=True)
+        else:
+            st.info("No holdings found for this portfolio.")
+
     # Table of existing portfolios
     st.subheader("Your Existing Portfolios")
     portfolios = get_user_portfolios()
+    
     if portfolios:
-        # Create a list of dictionaries with portfolio_name and created_at
-        portfolio_data = [{"Portfolio Name": p.portfolio_name, "Created At": p.created_at} for p in portfolios]
-        # Display the table
-        st.table(portfolio_data)
+        # Create a list of dictionaries with portfolio data
+        portfolio_data = [{
+            "Portfolio ID": p.portfolio_id,
+            "Portfolio Name": p.portfolio_name,
+            "Created At": p.created_at
+        } for p in portfolios]
+        
+        # Create a DataFrame for better formatting
+        portfolio_df = pd.DataFrame(portfolio_data)
+
+        def handle_portfolio_selection():
+            """Handle selection of portfolios in the dataframe"""
+            table = st.session_state.portfolios_table
+            
+            # Check if any rows are selected
+            if not table['selection']['rows']:
+                # Clear the selection state
+                st.session_state.selected_portfolio_id = None
+                return
+            
+            # Process selection if a row is selected
+            row_number = table['selection']['rows'][0]
+            row = portfolio_df.iloc[row_number]
+            st.session_state.selected_portfolio_id = row['Portfolio ID']
+
+        # Display interactive dataframe with hidden Portfolio ID column
+        selected_rows = st.dataframe(
+            portfolio_df[["Portfolio Name", "Created At"]],  # Only show these columns
+            hide_index=True,
+            use_container_width=True,
+            height=300,
+            on_select=handle_portfolio_selection,
+            selection_mode="single-row",
+            key="portfolios_table"
+        )
     else:
         st.info("You don't have any portfolios yet. Upload one using the form above.")
-    
+
 # Factor Library tab
 with tabs[2]:
     st.header("Factor Library")
