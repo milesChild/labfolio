@@ -4,8 +4,8 @@ import json
 from typing import Optional
 import os
 import io
-from common.models import Portfolio
-from pydantic import ValidationError
+from common.models import Portfolio, Factor
+from pydantic import ValidationError, fields
 
 # Backend URL from environment variable with fallback
 BACKEND_URL = os.getenv("BACKEND_URL", "http://api:8000")
@@ -67,6 +67,37 @@ def get_user_portfolios() -> list[Portfolio]:
             st.error(f"Failed to fetch portfolios: {error_detail}")
             return []
             
+    except requests.exceptions.Timeout:
+        st.error("Request timed out. Please try again.")
+        return []
+    except requests.exceptions.ConnectionError:
+        st.error("Could not connect to the server. Please try again later.")
+        return []
+    except Exception as e:
+        st.error(f"An unexpected error occurred: {str(e)}")
+        return []
+
+# TODO: Implement get_factors
+def get_factors() -> list[Factor]:
+    try:
+        response = requests.get(
+            f"{BACKEND_URL}/factors",
+            params={"user_id": st.session_state.user_id},
+            timeout=5
+        )
+        if response.status_code == 200:
+            factors = []
+            for factor_data in response.json():
+                try:
+                    factor = Factor.model_validate(factor_data)
+                    factors.append(factor)
+                except ValidationError as e:
+                    st.error(f"Invalid factor data received: {str(e)}")
+            return factors
+        else:
+            error_detail = response.json().get("detail", "Unknown error occurred")
+            st.error(f"Failed to fetch factors: {error_detail}")
+            return []
     except requests.exceptions.Timeout:
         st.error("Request timed out. Please try again.")
         return []
@@ -299,4 +330,27 @@ with tabs[1]:
 # Factor Library tab
 with tabs[2]:
     st.header("Factor Library")
-    # Add content for Factor Library here
+    st.subheader("Return Factors:")
+    st.write("""
+    Return factors are systematic drivers of investment returns that can help understand where your portfolio's risk and returns are "coming from".
+    These factors can represent the return of a particular market/country, a particular sector, or a custom investment style (such as momentum investing or value investing).
+    All factors quoted on labfolio source return data from publicly-traded, highly liquid ETFs. The implication is that factor quality is lower but hedging recommendations are actually implementable.
+    Below is a list of all factors currently available for portfolio analysis on labfolio.
+    """)
+    factors = get_factors()
+    if factors:
+        # Convert factors to a list of dictionaries, excluding created_at
+        factor_data = []
+        for factor in factors:
+            factor_dict = {
+                "Factor ID": factor.factor_id,
+                "Factor Name": factor.factor_name,
+                "Description": factor.factor_description,
+                "Category": factor.factor_category,
+                "Last Updated": factor.last_updated
+            }
+            factor_data.append(factor_dict)
+        # Display the scrollable table without index and full width
+        st.dataframe(factor_data, hide_index=True, use_container_width=True)
+    else:
+        st.info("No factors found in the library.")

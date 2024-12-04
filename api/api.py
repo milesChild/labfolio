@@ -4,7 +4,11 @@ import os
 import io
 from db import AWSDB
 from s3 import AWSS3
-from common.models import (Account, Portfolio)
+from common.models import (
+    Account,
+    Portfolio,
+    Factor
+)
 import bcrypt
 import uuid
 from typing import Optional
@@ -81,7 +85,6 @@ async def ping():
     """Health check endpoint"""
     return {"status": "pong"}
 
-# TODO: get a user's portfolios
 @app.get("/portfolios")
 async def get_user_portfolios(user_id: str):
     """Gets a user's portfolios"""
@@ -147,7 +150,23 @@ async def get_portfolio(portfolio_id: str, user_id: str):
 @app.get("/factors")
 async def get_factors():
     """Gets a list of available factors"""
-    pass
+    # queries the database for all factors
+    # returns a list of Factor objects
+    try:
+        db = get_db_connection()
+        db.cursor.execute("SELECT * FROM factor.factors")
+        result = db.cursor.fetchall()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching factors: {str(e)}")
+    # convert result to list of Factor objects
+    try:
+        column_names = [desc[0] for desc in db.cursor.description]
+        factors = [Factor(**dict(zip(column_names, row))) for row in result]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error converting factors to objects: {str(e)}")
+    finally:
+        del db
+    return factors
 
 #####################
 ### POST REQUESTS ###
