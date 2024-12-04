@@ -18,6 +18,8 @@ if 'authenticated' not in st.session_state:
     st.session_state.authenticated = False
 if 'username' not in st.session_state:
     st.session_state.username = None
+if 'user_id' not in st.session_state:
+    st.session_state.user_id = None
 if 'is_create_account' not in st.session_state:
     st.session_state.is_create_account = False
 
@@ -42,8 +44,10 @@ def login(username: str, password: str) -> bool:
             timeout=5
         )
         if response.status_code == 200:
+            response_data = response.json()
             st.session_state.authenticated = True
-            st.session_state.username = username
+            st.session_state.username = response_data["username"]
+            st.session_state.user_id = response_data["user_id"]
             return True
         elif response.status_code == 401:
             st.error("Invalid username or password.")
@@ -65,8 +69,10 @@ def create_account(username: str, password: str) -> bool:
         )
 
         if response.status_code == 200:  # Created successfully
+            response_data = response.json()
             st.session_state.authenticated = True
-            st.session_state.username = username
+            st.session_state.username = response_data["username"]
+            st.session_state.user_id = response_data["user_id"]
             return True
         elif response.status_code == 400:  # Username already exists
             st.error("Username already exists. Please choose a different username.")

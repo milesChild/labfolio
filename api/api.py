@@ -6,7 +6,7 @@ from s3 import AWSS3
 from common.models import Account
 import bcrypt
 import uuid
-
+from typing import Optional
 app = FastAPI(title="labfolio-api")
 
 ######################
@@ -43,8 +43,6 @@ def check_username_exists(username: str) -> bool:
     del db
     return result is not None
 
-# TODO: validate a portfolio
-
 ####################
 ### GET REQUESTS ###
 ####################
@@ -55,8 +53,27 @@ async def ping():
     return {"status": "pong"}
 
 # TODO: get a user's portfolios
+@app.get("/portfolios")
+async def get_user_portfolios(user_id: Optional[str], username: Optional[str]):
+    """Gets a user's portfolios"""
+    if user_id is None and username is None:
+        raise HTTPException(status_code=400, detail="Either user_id or username must be provided.")
+    pass
+
+# TODO: get a specific portfolio
+@app.get("/portfolio")
+async def get_portfolio(portfolio_id: str):
+    """Gets a specific portfolio"""
+    pass
+
+
+
 
 # TODO: get a list of available factors
+@app.get("/factors")
+async def get_factors():
+    """Gets a list of available factors"""
+    pass
 
 #####################
 ### POST REQUESTS ###
@@ -101,8 +118,12 @@ async def create_account(username: str, password: str):
         query = f"INSERT INTO user_management.accounts ({', '.join(account_dict.keys())}) VALUES ({', '.join(['%s'] * len(account_dict))})"
         db.cursor.execute(query, tuple(account_dict.values()))
 
-        # Status code 200 for a successful account creation
-        return {"status": "Account created successfully."}
+        # Return user information instead of just status
+        return {
+            "status": "Account created successfully",
+            "user_id": user_id,
+            "username": username
+        }
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error creating account: {str(e)}")
@@ -143,8 +164,12 @@ async def login(username: str, password: str):
         if not bcrypt.checkpw(password.encode('utf-8'), stored_hash.encode('utf-8')):
             raise HTTPException(status_code=401, detail="Invalid username or password")
         
-        # Status code 200 for a successful login
-        return {"status": "Successfully logged in."}
+        # Return user information instead of just status
+        return {
+            "status": "Successfully logged in",
+            "user_id": user_id,
+            "username": username
+        }
         
     except HTTPException:
         raise  # Re-raise HTTP exceptions
