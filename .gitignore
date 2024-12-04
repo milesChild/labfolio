@@ -4,3 +4,8 @@ __pycache__
 api/db_test.py
 factor_library.xlsx
 ecr_functions.txt
+s3_test.py
+*.csv
+*.xlsx
+*.pem
+__pycache__

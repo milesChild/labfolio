@@ -1,0 +1,6 @@
+*.csv
+*.xlsx
+*.pem
+*.sh
+__pycache__
+lambda/

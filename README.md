@@ -8,7 +8,6 @@ Open-sourced portfolio analysis stack
 
 ![architecture](./labfolio-architecture.png)
 
-
 # project structure
 
 Project subdirectories are as follows:
@@ -30,7 +29,7 @@ Project subdirectories are as follows:
 
 ## `lambda`
 
-Factor returns are constantly changing. Lambda is used in labfolio for one purpose: to update the returns for the factors (daily). Here are the short details:
+The dashboard functionality relies on up-to-date factor return data, but factor returns are constantly changing. Lambda is used in labfolio for one purpose: to update the returns for the factors (daily). Here are the short details:
 
 | File | Description |
 |-----------|-------------|
@@ -39,6 +38,10 @@ Factor returns are constantly changing. Lambda is used in labfolio for one purpo
 | `update_image.sh`  | Script for updating the Lambda image in Amazon ECR |
 | `requirements.txt`  | Python dependencies for the Lambda function |
 | `labfolio-factors-daily-update.yaml`  | AWS SAM template for the Lambda function. You should be able to replicate the function by importing this template file. Be sure to update the placeholder values. |
+
+Lambda is appropriate for this task because this level of sophistication for factor modeling does not require granularity of return data updates greater than daily. It also allows us to easily write a lightweight python script, host it on AWS, and maintain a simple schedule so the database stays up-to-date. 
+
+My implementation is relatively memory-efficient, enforcing garbage collection between dataset uploads. Max memory usage is 80MB per run. *Improvements can undoubtedly be made here.*
 
 You can see detailed instructions for updating the Lambda image in the [appendix](#appendix).
 
