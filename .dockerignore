@@ -4,3 +4,4 @@
 *.sh
 __pycache__
 lambda/
+data.py

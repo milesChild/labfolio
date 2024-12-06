@@ -9,3 +9,4 @@ s3_test.py
 *.xlsx
 *.pem
 __pycache__
+data.py
