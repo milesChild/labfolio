@@ -269,6 +269,34 @@ def upload_portfolio(file, portfolio_name: str) -> bool:
         st.error(f"An unexpected error occurred: {str(e)}")
         return False
 
+def download_portfolio_template() -> None:
+    """Downloads the template portfolio file from S3"""
+    try:
+        response = requests.get(
+            f"{BACKEND_URL}/download/portfolios/template_portfolio.csv",
+            timeout=5,
+            stream=True
+        )
+        
+        if response.status_code == 200:
+            # Trigger browser download
+            st.download_button(
+                label="Download Template Portfolio",
+                data=response.content,
+                file_name="template_portfolio.csv",
+                mime="text/csv"
+            )
+        else:
+            error_detail = response.json().get("detail", "Unknown error occurred")
+            st.error(f"Failed to download template: {error_detail}")
+            
+    except requests.exceptions.Timeout:
+        st.error("Request timed out. Please try again.")
+    except requests.exceptions.ConnectionError:
+        st.error("Could not connect to the server. Please try again later.")
+    except Exception as e:
+        st.error(f"An unexpected error occurred: {str(e)}")
+
 #########################
 ### UI HELPER METHODS ###
 #########################
@@ -338,9 +366,10 @@ with tabs[0]:
 with tabs[1]:
     st.header("My Portfolios")
     
-    # Form for uploading a new portfolio
+    st.subheader("Upload a New Portfolio")
+    
+    # Upload form
     with st.form("upload_portfolio_form"):
-        st.subheader("Upload a New Portfolio")
         uploaded_file = st.file_uploader("Choose a CSV file", type=['csv'])
         portfolio_name = st.text_input("Portfolio Name*", placeholder="Enter a name for your portfolio")
         submitted = st.form_submit_button("Upload Portfolio")
@@ -353,7 +382,10 @@ with tabs[1]:
             else:
                 if upload_portfolio(uploaded_file, portfolio_name):
                     st.rerun()
-
+    
+    # Place download button to the right of the form
+    download_portfolio_template()
+    
     # Display holdings if a portfolio is selected
     if st.session_state.selected_portfolio_id:
         st.divider()

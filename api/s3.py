@@ -170,3 +170,16 @@ class AWSS3():
             return None
         finally:
             csv_buffer.close()
+
+    def download_fileobj(self, s3_key: str) -> Optional[io.BytesIO]:
+        """
+        Downloads a file from S3 into a BytesIO object
+        :param s3_key: Path of the file in S3
+        :return: BytesIO object containing the file data, or None if error
+        """
+        try:
+            response = self.s3.get_object(Bucket=self.bucket, Key=s3_key)
+            return io.BytesIO(response['Body'].read())
+        except ClientError as e:
+            print(f'Error downloading file: {str(e)}')
+            return None

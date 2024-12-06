@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, UploadFile, File
+from fastapi import FastAPI, HTTPException, UploadFile, File, Response
 import uvicorn
 import os
 import io
@@ -14,6 +14,8 @@ import bcrypt
 import uuid
 from typing import Optional
 import pandas as pd
+from fastapi.responses import StreamingResponse
+
 app = FastAPI(title="labfolio-api")
 
 DEMO_PORTFOLIO_ID = "7c2114c3-baa6-4c98-9f3c-939f414a4531"
@@ -202,7 +204,6 @@ async def get_portfolio_holdings(portfolio_id: str) -> list[PortfolioHolding]:
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching portfolio holdings: {str(e)}")
 
-# TODO: get a list of available factors
 @app.get("/factors")
 async def get_factors():
     """Gets a list of available factors"""
@@ -224,6 +225,30 @@ async def get_factors():
         del db
     return factors
 
+@app.get("/download/{file_path:path}")
+async def download_file(file_path: str):
+    """Downloads a file from S3"""
+    try:
+        s3 = get_s3_connection()
+        file_obj = s3.download_fileobj(file_path)
+        
+        if file_obj is None:
+            raise HTTPException(status_code=404, detail="File not found")
+            
+        # Create a streaming response
+        return StreamingResponse(
+            iter([file_obj.getvalue()]),
+            media_type="application/octet-stream",
+            headers={
+                "Content-Disposition": f"attachment; filename={file_path.split('/')[-1]}"
+            }
+        )
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error downloading file: {str(e)}")
+    finally:
+        if 's3' in locals(): del s3
+        
 #####################
 ### POST REQUESTS ###
 #####################
