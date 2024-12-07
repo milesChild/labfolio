@@ -30,6 +30,12 @@ if 'selected_portfolio_id' not in st.session_state:
     st.session_state.selected_portfolio_id = None
 if 'portfolios_table' not in st.session_state:
     st.session_state.portfolios_table = None
+if 'factor_selection' not in st.session_state:
+    st.session_state.factor_selection = None
+if 'analysis_running' not in st.session_state:
+    st.session_state.analysis_running = False
+if 'selected_factors' not in st.session_state:
+    st.session_state.selected_factors = []
 
 ##############################
 ### BACKEND HELPER METHODS ###
@@ -143,6 +149,21 @@ def get_factors() -> list[Factor]:
     except Exception as e:
         st.error(f"An unexpected error occurred: {str(e)}")
         return []
+
+def validate_factor_model() -> None:
+    """Stub method to validate the selected factors"""
+    if not st.session_state.selected_factors:
+        st.warning("Please select at least one factor.")
+        return
+    st.success(f"Factor model validated with {len(st.session_state.selected_factors)} factors!")
+
+def run_factor_analysis() -> None:
+    """Stub method to run the factor analysis"""
+    if not st.session_state.selected_factors:
+        st.warning("Please select at least one factor.")
+        return
+    st.success(f"Analysis running with {len(st.session_state.selected_factors)} factors!")
+
 
 #####################
 ### POST REQUESTS ###
@@ -360,7 +381,69 @@ tabs = st.tabs(["Portfolio Analysis", "My Portfolios", "Factor Library"])
 # Portfolio Analysis tab
 with tabs[0]:
     st.header("Portfolio Analysis")
-    # Add content for Portfolio Analysis here
+    
+    # First section - Factor Selection and Portfolio View
+    col1, col2 = st.columns(2)
+    
+    # Left column - Factor Library
+    with col1:
+        st.subheader("Factor Library")
+        factors = get_factors()
+        if factors:
+            # Convert factors to a more concise display format
+            factor_data = [{
+                "Factor Name": f.factor_name,
+                "Category": f.factor_category
+            } for f in factors]
+            
+            # Create DataFrame for better formatting
+            factor_df = pd.DataFrame(factor_data)
+            
+            def handle_factor_selection():
+                """Handle selection of factors in the dataframe"""
+                table = st.session_state.factor_selection
+                
+                # Check if any rows are selected
+                if not table['selection']['rows']:
+                    st.session_state.selected_factors = []
+                    return
+                
+                # Store selected factors
+                st.session_state.selected_factors = table['selection']['rows']
+
+            st.dataframe(
+                factor_df,
+                hide_index=True,
+                use_container_width=True,
+                selection_mode="multi-row",
+                key="factor_selection",
+                on_select=handle_factor_selection
+            )
+            
+            # Add buttons in two columns for better layout
+            button_col1, button_col2 = st.columns(2)
+            with button_col1:
+                st.button("Validate Factor Model", 
+                         on_click=validate_factor_model,
+                         use_container_width=True)
+            with button_col2:
+                st.button("Run Analysis", 
+                         on_click=run_factor_analysis,
+                         use_container_width=True)
+    
+    # Right column - Portfolio Holdings
+    with col2:
+        st.subheader("Portfolio Holdings")
+        if st.session_state.selected_portfolio_id:
+            holdings = get_portfolio_holdings(st.session_state.selected_portfolio_id)
+            if holdings:
+                holdings_data = [{"Ticker": h.yf_ticker, "Quantity": h.quantity} for h in holdings]
+                st.dataframe(holdings_data, hide_index=True, use_container_width=True)
+        else:
+            st.info("Please select a portfolio from the 'My Portfolios' tab to view holdings.")
+    
+    # Add a divider before next sections
+    st.divider()
 
 # My Portfolios tab
 with tabs[1]:
