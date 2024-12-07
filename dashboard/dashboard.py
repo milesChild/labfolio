@@ -64,10 +64,10 @@ def get_user_portfolios() -> list[Portfolio]:
         )
         
         if response.status_code == 200:
-            # Convert each portfolio dict to a validated Portfolio object
             portfolios = []
             for portfolio_data in response.json():
                 try:
+                    # Ensure portfolio_id is converted to string
                     portfolio = Portfolio.model_validate(portfolio_data)
                     portfolios.append(portfolio)
                 except ValidationError as e:
@@ -150,19 +150,116 @@ def get_factors() -> list[Factor]:
         st.error(f"An unexpected error occurred: {str(e)}")
         return []
 
-def validate_factor_model() -> None:
-    """Stub method to validate the selected factors"""
-    if not st.session_state.selected_factors:
-        st.warning("Please select at least one factor.")
-        return
-    st.success(f"Factor model validated with {len(st.session_state.selected_factors)} factors!")
+def validate_factor_model():
+    """
+    Validates the factor model using selected factors and holdings from session state
+    """
+    try:
+        # First check if we have a selected portfolio
+        if not st.session_state.selected_portfolio_id:
+            st.warning("Please select a portfolio first")
+            return
+            
+        # Get selected factors and holdings from session state
+        factors = st.session_state.get('selected_factors', [])
+        if not factors:
+            st.warning("Please select at least one factor")
+            return
+            
+        # Now get holdings since we know we have a portfolio_id
+        holdings = get_portfolio_holdings(st.session_state.selected_portfolio_id)
+        if not holdings:
+            st.warning("Selected portfolio has no holdings")
+            return
+            
+        # Convert holdings to expected format
+        portfolio_holdings = [
+            {
+                "portfolio_id": st.session_state.selected_portfolio_id,
+                "yf_ticker": h.yf_ticker,
+                "quantity": h.quantity
+            }
+            for h in holdings
+        ]
+        
+        # Make POST request to API endpoint
+        response = requests.post(
+            f"{BACKEND_URL}/analysis/validate_factor_model",
+            json={
+                "factors": factors,
+                "holdings": portfolio_holdings
+            },
+            timeout=5
+        )
+            
+        if response.status_code == 200:
+            if response.json():
+                st.success("Factor model is valid!")
+            else:
+                st.warning("Factor model is not valid.")
+        else:
+            st.error(f"Error validating factor model: {response.text}")
+            
+    except Exception as e:
+        st.error(f"Error validating factor model: {str(e)}")
 
 def run_factor_analysis() -> None:
-    """Stub method to run the factor analysis"""
-    if not st.session_state.selected_factors:
-        st.warning("Please select at least one factor.")
-        return
-    st.success(f"Analysis running with {len(st.session_state.selected_factors)} factors!")
+    """
+    Runs a factor analysis using selected factors and holdings from session state
+    """
+    try:
+        # First check if we have a selected portfolio
+        if not st.session_state.selected_portfolio_id:
+            st.warning("Please select a portfolio first")
+            return
+            
+        # Get selected factors and holdings from session state
+        factors = st.session_state.get('selected_factors', [])
+        if not factors:
+            st.warning("Please select at least one factor")
+            return
+            
+        # Now get holdings since we know we have a portfolio_id
+        holdings = get_portfolio_holdings(st.session_state.selected_portfolio_id)
+        if not holdings:
+            st.warning("Selected portfolio has no holdings")
+            return
+            
+        # Convert holdings to expected format
+        portfolio_holdings = [
+            {
+                "portfolio_id": st.session_state.selected_portfolio_id,
+                "yf_ticker": h.yf_ticker,
+                "quantity": h.quantity
+            }
+            for h in holdings
+        ]
+        
+        # Set analysis running state
+        st.session_state.analysis_running = True
+        
+        # Make POST request to API endpoint
+        response = requests.post(
+            f"{BACKEND_URL}/analysis/factor_model",
+            json={
+                "factors": factors,
+                "holdings": portfolio_holdings
+            },
+            timeout=10  # Longer timeout since this is a more intensive operation
+        )
+            
+        if response.status_code == 200:
+            analysis_results = response.json()
+            # TODO: Display analysis results in a meaningful way
+            st.success("Factor analysis completed successfully!")
+            st.json(analysis_results)  # Temporary display of raw results
+        else:
+            st.error(f"Error running factor analysis: {response.text}")
+            
+    except Exception as e:
+        st.error(f"Error running factor analysis: {str(e)}")
+    finally:
+        st.session_state.analysis_running = False
 
 
 #####################
@@ -392,6 +489,7 @@ with tabs[0]:
         if factors:
             # Convert factors to a more concise display format
             factor_data = [{
+                "Factor ID": f.factor_id,
                 "Factor Name": f.factor_name,
                 "Category": f.factor_category
             } for f in factors]
@@ -408,8 +506,14 @@ with tabs[0]:
                     st.session_state.selected_factors = []
                     return
                 
+                # Get selected row indices
+                selected_indices = table['selection']['rows']
+                
+                # Convert indices to factor IDs instead of names
+                selected_factors = factor_df.iloc[selected_indices]['Factor ID'].tolist()
+                
                 # Store selected factors
-                st.session_state.selected_factors = table['selection']['rows']
+                st.session_state.selected_factors = selected_factors
 
             st.dataframe(
                 factor_df,
