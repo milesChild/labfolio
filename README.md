@@ -73,6 +73,7 @@ A streamlit dashboard will automatically begin running, which you can access at 
 
 # architecture
 
+```mermaid
 graph TB
     subgraph AWS Cloud
         EC2[EC2 Instance]
@@ -114,6 +115,7 @@ graph TB
     class RDS,S3,Lambda,ECR,EventBridge aws
     class API,Dashboard service
     class YFinance external
+```
 
 ![architecture](./labfolio-architecture.png)
 
