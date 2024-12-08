@@ -1,6 +1,45 @@
 # labfolio
 Open-sourced portfolio analysis stack
 
+**Overview of the labfolio pipeline**
+
+*Pipeline*
+
+Labfolio is a streamlit dashboard that allows users to analyze their own personal equity portfolios using custom-build factor models. The dashboard communicates with a REST API, which in turn communicates with a PostgreSQL database and AWS S3. Equity returns data is obtained ad hoc (upon a user's request) using the `yfinance` library. Redundant data is stored in the database and regularly updated with a lambda function.
+
+*AWS Technologies*
+
+| AWS Service | Purpose |
+|------------|----------|
+| EC2 | Hosts this project's API and dashboard |
+| RDS (PostgreSQL) | Stores factor data, user accounts, portfolio metadata, and factor returns in a relational database (see database design below) |
+| S3 | Stores user-uploaded portfolio files |
+| Lambda | Runs automated jobs to update factor return data in the database |
+| ECR | Stores the lambda function's Docker image |
+| EventBridge | Schedules the lambda function to update factor return data in the database |
+
+*Goals*
+
+Labfolio's main goal is to provide user-friendly and free access to expensive and complex portfolio analysis tools. Labfolio currently allows users to do the following:
+
+- Upload and store their own portfolios in an easy and secure manner
+- Build their own custom factor models using data that labfolio stores on the backend
+- Run complex factor model analysis on their personal portfolios
+- Visualize the most crucial and informative metrics of these analyses in a user-friendly manner
+
+*Data*
+
+Factor modeling requires granular return data for each factor and stock in the model. Because factor returns are redundant across analyses (irrespective of the portfolio being analyzed), we can store the data in a database and update it with a lambda function. This saves a great deal of time for users.
+
+The database stores data about the following:
+- Factors: factor names, descriptions, and categories
+- Returns: factor returns for each date
+- Portfolios: portfolio names and S3 addresses
+- Holdings: portfolio holdings (ticker, quantity)
+- User Accounts: user credentials and portfolio ownership
+
+Labfolio also permits users to upload their own portfolios, which are stored in AWS S3.
+
 # quickstart
 
 First, you will need to configure your environment variables. Create a `.env` file in the root directory and populate it with the following:
@@ -33,6 +72,48 @@ docker compose up --build
 A streamlit dashboard will automatically begin running, which you can access at `http://localhost:8501`.
 
 # architecture
+
+graph TB
+    subgraph AWS Cloud
+        EC2[EC2 Instance]
+        RDS[(PostgreSQL RDS)]
+        S3[(S3 Bucket)]
+        Lambda[Lambda Function]
+        ECR[(ECR Registry)]
+        EventBridge[EventBridge]
+    end
+
+    subgraph EC2 Instance
+        API[FastAPI Backend]
+        Dashboard[Streamlit Dashboard]
+    end
+
+    subgraph Client
+        Browser[Web Browser]
+    end
+
+    %% Client interactions
+    Browser -->|HTTP/8501| Dashboard
+    Dashboard -->|HTTP/8000| API
+
+    %% API interactions
+    API -->|Query Data| RDS
+    API -->|Store/Fetch Files| S3
+    API -->|Fetch Stock Data| YFinance[Yahoo Finance API]
+
+    %% Lambda update flow
+    EventBridge -->|Schedule Trigger| Lambda
+    Lambda -->|Update Factor Returns| RDS
+    Lambda -->|Pull Image| ECR
+
+    %% Styling
+    classDef aws fill:#FF9900,stroke:#232F3E,stroke-width:2px,color:white
+    classDef service fill:#3F8624,stroke:#232F3E,stroke-width:2px,color:white
+    classDef external fill:#666666,stroke:#232F3E,stroke-width:2px,color:white
+
+    class RDS,S3,Lambda,ECR,EventBridge aws
+    class API,Dashboard service
+    class YFinance external
 
 ![architecture](./labfolio-architecture.png)
 
