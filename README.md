@@ -1,5 +1,5 @@
 # labfolio
-Open-sourced portfolio analysis stack
+Open-sourced portfolio analysis stack. Running on [AWS]('http://52.207.247.226:8501/')
 
 **Overview of the labfolio pipeline**
 
@@ -116,8 +116,6 @@ graph TB
     class API,Dashboard service
     class YFinance external
 ```
-
-![architecture](./labfolio-architecture.png)
 
 # project structure
 
