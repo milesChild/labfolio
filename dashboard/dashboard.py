@@ -7,6 +7,9 @@ import io
 from common.models import Portfolio, PortfolioHolding, Factor
 from pydantic import ValidationError, fields
 import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
+import numpy as np
 
 # Backend URL from environment variable with fallback
 BACKEND_URL = os.getenv("BACKEND_URL", "http://api:8000")
@@ -36,6 +39,8 @@ if 'analysis_running' not in st.session_state:
     st.session_state.analysis_running = False
 if 'selected_factors' not in st.session_state:
     st.session_state.selected_factors = []
+if 'analysis_results' not in st.session_state:
+    st.session_state.analysis_results = None
 
 ##############################
 ### BACKEND HELPER METHODS ###
@@ -245,14 +250,13 @@ def run_factor_analysis() -> None:
                 "factors": factors,
                 "holdings": portfolio_holdings
             },
-            timeout=10  # Longer timeout since this is a more intensive operation
+            timeout=25
         )
             
         if response.status_code == 200:
-            analysis_results = response.json()
-            # TODO: Display analysis results in a meaningful way
+            # Store analysis results in session state
+            st.session_state.analysis_results = response.json()
             st.success("Factor analysis completed successfully!")
-            st.json(analysis_results)  # Temporary display of raw results
         else:
             st.error(f"Error running factor analysis: {response.text}")
             
@@ -548,6 +552,123 @@ with tabs[0]:
     
     # Add a divider before next sections
     st.divider()
+    
+    # actual analysis
+    if st.session_state.analysis_results:
+        st.subheader("Factor Model Analysis")
+        
+        # Display statistics
+        stats = st.session_state.analysis_results['analysis']['statistics']
+
+        # Display statistics as a table
+        stats_df = pd.DataFrame({
+            'Metric': ['Number of Factors', 'Number of Assets', 'Number of Observations', 'R-squared', 'J-statistic'],
+            'Value': [
+                stats['no_factors'],
+                stats['no_assets'],
+                stats['no_observations'],
+                f"{stats['r_squared']:.4f}",
+                f"{stats['j_statistic']:.4f}"
+            ]
+        })
+        
+        st.dataframe(
+            stats_df,
+            hide_index=True,
+            use_container_width=True
+        )
+
+        # Portfolio Factor Exposures
+        st.subheader("Portfolio Factor Exposures")
+        st.write("""Factor exposures are the weights of each factor in the portfolio.
+        These can help you understand how much risk each factor is contributing to your portfolio.""")
+
+        n_assets = stats['no_assets']
+        equal_weights = np.repeat(1/n_assets, n_assets)
+        params = st.session_state.analysis_results['analysis']['params']
+        params = pd.DataFrame.from_dict(params)
+        betas = params.copy()
+        if 'alpha' in betas.columns:
+            portfolio_betas = betas.drop('alpha', axis=1).T @ equal_weights
+        else:
+            portfolio_betas = betas.T @ equal_weights
+
+        fig, ax = plt.subplots()
+        portfolio_betas.plot.barh(ax=ax)
+        plt.title('Portfolio Factor Exposures')
+        for i, v in enumerate(portfolio_betas):
+            ax.text(v, i, f'{v:.2f}', color='black', va='center')
+        plt.xlabel('Beta')
+        plt.tight_layout()
+        st.pyplot(fig)
+        plt.close(fig)
+
+        st.dataframe(portfolio_betas, use_container_width=True)
+
+        # Factor Risk Premia Estimates
+        st.subheader("Factor Risk Premia Estimates")
+        st.write("""Factor risk premia are the expected returns of each factor.
+        These can help you understand how much return each factor is contributing to your portfolio.""")
+
+        risk_premia = st.session_state.analysis_results['analysis']['risk_premia']
+        risk_premia = pd.DataFrame.from_dict(risk_premia, orient='index', columns=['Mean Annualized Return'])
+        fig, ax = plt.subplots(figsize=(10, 8))
+        risk_premia.sort_values(by='Mean Annualized Return', ascending=False).plot.barh(ax=ax)
+        sns.despine()
+        plt.tight_layout()
+        st.pyplot(fig)
+        plt.close(fig)
+        st.dataframe(risk_premia, hide_index=False, use_container_width=True)
+
+        # Holdings Data
+        st.subheader("Portfolio Holdings Data")
+        st.write("""Granular data on the individual holdings from the portfolio factor analysis.""")
+
+        st.markdown("### Individual Asset Factor Betas")
+        # Plot the model betas
+        fig, ax = plt.subplots(figsize=(10, 8))
+        params.plot.barh(ax=ax)
+        sns.despine()
+        plt.tight_layout()
+        st.pyplot(fig)
+        plt.close(fig)
+
+        st.dataframe(params, hide_index=True, use_container_width=True)
+
+        # Create covariance matrix heatmap
+        st.markdown("### Factor Covariance Matrix")
+        # Subtitle explaining what the covariance matrix is used for
+        st.write("The covariance matrix can help in understanding how the factors are correlated with each other.")
+        
+        # Convert covariance dictionary to DataFrame
+        cov_matrix = pd.DataFrame.from_dict(
+            st.session_state.analysis_results['analysis']['covariance_matrix']
+        )
+        
+        # Create the heatmap
+        fig, ax = plt.subplots(figsize=(10, 8))
+        sns.heatmap(
+            cov_matrix,
+            annot=False,
+            cmap='coolwarm',
+            center=0,
+            fmt='.2e',
+            ax=ax
+        )
+        plt.title('Factor Covariance Matrix')
+        
+        # Rotate x-axis labels for better readability
+        plt.xticks(rotation=45, ha='right')
+        plt.yticks(rotation=0)
+        
+        # Adjust layout to prevent label cutoff
+        plt.tight_layout()
+        
+        # Display the plot
+        st.pyplot(fig)
+        
+        # Clean up
+        plt.close(fig)
 
 # My Portfolios tab
 with tabs[1]:

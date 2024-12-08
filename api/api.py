@@ -517,7 +517,7 @@ async def analyze_factor_model(factors: list[str], holdings: list[PortfolioHoldi
     holdings_tickers = [str(h.yf_ticker) for h in holdings]
     
     # validate the factor model first
-    if not validate_factor_model(factors, holdings_tickers):
+    if not __validate_factor_model(factors, holdings_tickers):
         print("DEBUG: Factor model validation failed")
         raise HTTPException(status_code=400, detail="Invalid factor model")
     print("DEBUG: Factor model validation passed")
@@ -576,10 +576,13 @@ async def analyze_factor_model(factors: list[str], holdings: list[PortfolioHoldi
         model_rsq = res.rsquared
         model_no_assets = len(res.params)
         model_no_factors = len(factor_df.columns)
+        model_j_stat = res.j_statistic.stat
+        params = res.params
         print(f"DEBUG: Model fit complete")
         print(f"DEBUG: R-squared: {model_rsq:.4f}")
         print(f"DEBUG: Number of assets: {model_no_assets}")
         print(f"DEBUG: Number of factors: {model_no_factors}")
+        print(f"DEBUG: J-statistic: {model_j_stat:.4f}")
     except Exception as e:
         print(f"DEBUG: Error fitting factor model: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error fitting factor model: {str(e)}")
@@ -589,11 +592,16 @@ async def analyze_factor_model(factors: list[str], holdings: list[PortfolioHoldi
         response = {
             "status": "success",
             "analysis": {
-                "no_factors": model_no_factors,
-                "no_assets": model_no_assets,
                 "statistics": {
-                    "r_squared": model_rsq
+                    "no_factors": model_no_factors,
+                    "no_assets": model_no_assets,
+                    "no_observations": len(factor_df),
+                    "r_squared": model_rsq,
+                    "j_statistic": model_j_stat
                 },
+                "covariance_matrix": res.cov.to_dict(),
+                "params": params.to_dict(),
+                "risk_premia": res.risk_premia.to_dict(),
                 "timestamp": str(datetime.datetime.now())
             }
         }
