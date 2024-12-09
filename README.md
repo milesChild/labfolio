@@ -1,5 +1,5 @@
 # labfolio
-Open-sourced portfolio analysis stack. Running on [AWS]('http://52.207.247.226:8501/')
+Open-sourced portfolio analysis stack. Running on [AWS](http://52.207.247.226:8501/)
 
 **Overview of the labfolio pipeline**
 
